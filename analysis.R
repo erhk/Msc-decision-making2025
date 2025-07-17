@@ -1,4 +1,7 @@
+#### ANALYSIS ####
 
+
+#### Load everything ####
 #Load library
 pacman::p_load(tidyverse, cmdstanr, posterior, bayesplot, ggplot2, tidyr, dplyr,purrr)
 
@@ -9,7 +12,6 @@ igt_all_with_wins <- read_csv("data/Final_IGT_Dataset_with_Wins_and_Running_Tota
 igt_95  <- igt_all_with_wins %>% filter(Condition == "IGT_95")
 igt_150 <- igt_all_with_wins %>% filter(Condition == "IGT_150")
 
-
 # Loads fits
 fit_95 <- readRDS("fits/fit_95_cmdstanr.stanfit")
 fit_150 <- readRDS("fits/fit_150_cmdstanr.stanfit")
@@ -17,6 +19,9 @@ fit_150 <- readRDS("fits/fit_150_cmdstanr.stanfit")
 # Extract draws
 draws_95 <- as_draws_df(fit_95$draws())
 draws_150 <- as_draws_df(fit_150$draws())
+
+
+
 
 
 ### Diagnostics of fits ####
@@ -37,6 +42,10 @@ mcmc_trace(draws_150_arr, pars = c("mu_alpha", "mu_c", "mu_A", "mu_w"))
 # Slightly below 0.8 for both, 0.60-70. No divergences or hitting treedepth
 fit_95$diagnostic_summary()
 fit_150$diagnostic_summary()
+
+
+
+
 
 #### Simulate agents using empirical posterior parameter #### 
 
@@ -75,19 +84,20 @@ softmax <- function(x) {
   exp_x / sum(exp_x)
 }
 
-####
 
-# Load posterior draws
-draws <- as_draws_df(fit_95$draws()) # or fit_150$draws()
+# Simulate!
+
+# Load posterior draws from whichever dataset used to simulate from, using 95 here
+draws <- as_draws_df(fit_95$draws()) 
 
 # Identify subjects
-subjects <- sort(unique(igt_95$SubjectID))  # or igt_150
+subjects <- sort(unique(igt_95$SubjectID)) 
 n_subjects <- length(subjects)
 
 # Placeholder for simulated choices
 sim_choices <- list()
 
-# Compute posterior means for all subject-level parameters
+# Use posterior means for all subject-level parameters
 alpha_means <- sapply(1:n_subjects, function(i) mean(draws[[paste0("alpha[", i, "]")]]))
 w_means <- sapply(1:n_subjects, function(i) mean(draws[[paste0("w[", i, "]")]]))
 A_means <- sapply(1:n_subjects, function(i) mean(draws[[paste0("A[", i, "]")]]))
@@ -106,9 +116,9 @@ for (i in seq_along(subjects)) {
   n_trials <- nrow(subj_data)
   
   alpha_i <- alpha_means[i]
-  w_i     <- w_means[i]
-  A_i     <- A_means[i]
-  c_i     <- c_means[i]
+  w_i <- w_means[i]
+  A_i <- A_means[i]
+  c_i <- c_means[i]
   
   # Real outcomes for simulation
   wins <- subj_data$Win
@@ -119,7 +129,7 @@ for (i in seq_along(subjects)) {
 }
 
 
-# Combine simulated data into a long dataframe
+# Combine simulated data into a df
 sim_df <- map2_df(sim_choices, subjects, function(sim, subj_id) {
   tibble(
     SubjectID = subj_id,
@@ -134,7 +144,7 @@ real_df <- igt_95 %>%
   select(SubjectID, Trial, Choice) %>%
   mutate(Source = "Real")
 
-# Combine into one dataset
+# Combine into one df
 combined_df <- bind_rows(real_df, sim_df)
 
 # Bin trials into sets of 10 - otherwise it's hard to read the plot
@@ -147,6 +157,9 @@ prop_df <- combined_df %>%
   summarise(n = n(), .groups = "drop") %>%
   group_by(Source, TrialBin) %>%
   mutate(prop = n / sum(n))
+
+
+#### Explore comparison
 
 ggplot(prop_df, aes(x = TrialBin, y = prop, color = factor(Choice), group = Choice)) +
   geom_line(linewidth = 1.2) +

@@ -3,4 +3,10 @@
 .RData
 .Ruserdata
 data/
+
 *.exe
+*.pdf
+*.png
+*.jpeg
+*.csv
+

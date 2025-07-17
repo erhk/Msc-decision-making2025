@@ -6,16 +6,12 @@ pacman::p_load(tidyverse, cmdstanr, posterior, bayesplot, ggplot2, tidyr, dplyr,
 # Load pvl model
 model <- cmdstan_model("models/PVL_hierach.stan", cpp_options = list(stan_threads = TRUE))
 
-# Loads fits
-fit_95 <- readRDS("fit_95_cmdrstanr.stanfit.rds")
-
-
 # Load empirical data
 igt_all_with_wins <- read_csv("data/Final_IGT_Dataset_with_Wins_and_Running_Total.csv")
 
 # subset to different conditions (studies)
 igt_95  <- igt_all_with_wins %>% filter(Condition == "IGT_95")
-igt_100 <- igt_all_with_wins %>% filter(Condition == "IGT_100")
+#igt_100 <- igt_all_with_wins %>% filter(Condition == "IGT_100")
 igt_150 <- igt_all_with_wins %>% filter(Condition == "IGT_150")
 
 # Prepare and fit data to model - function
@@ -74,45 +70,8 @@ fit_95  <- prepare_and_fit(igt_95, model)
 #saveRDS(fit_150, file = "fit_150.rds")
 
 
-# Diagnostics
-
-fit_95$fit$summary(variables = NULL) %>% head()
-
-fit_95$fit$summary(variables = c("mu_alpha", "mu_w", "mu_A", "mu_c",
-                                 "sigma_alpha", "sigma_w", "sigma_A", "sigma_c"))
-fit_95$fit$diagnostic_summary()
-
-draws <- as_draws_df(fit_95$fit$draws())
-
-# Trace plots for group-level parameters
-mcmc_trace(draws, pars = c("mu_alpha", "mu_w", "mu_A", "mu_c"))
 
 
 
-### Extract parameters and bind them - currently only have 95
-
-# extraction function
-extract_group_params <- function(fit_obj, condition_name) {
-  fit_obj$fit$summary(variables = c(
-    "mu_alpha", "mu_w", "mu_A", "mu_c",
-    "sigma_alpha", "sigma_w", "sigma_A", "sigma_c"
-  )) %>%
-    mutate(Condition = condition_name)
-}
-
-
-extract_group_params(fit_95, "IGT_95")
-
-
-# group_params <- bind_rows(
-#   extract_group_params(fit_95, "IGT_95"),
-#   extract_group_params(fit_100, "IGT_100"),
-#   extract_group_params(fit_150, "IGT_150")
-# )
-
-### Analysis
-
-# Extract draws
-draws_95 <- as_draws_df(fit_95$draws())
 
 

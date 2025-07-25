@@ -6,7 +6,7 @@
 pacman::p_load(tidyverse, cmdstanr, posterior, bayesplot, ggplot2, tidyr, dplyr,purrr, GGally)
 
 # Load empirical data
-igt_all_with_wins <- read_csv("data/Final_IGT_Dataset_with_Wins_and_Running_Total.csv")
+igt_all_with_wins <- read_csv("data/Final_IGT_Dataset.csv")
 
 # subset to different conditions (studies). Not using igt_100, fitting the model takes too long
 igt_95  <- igt_all_with_wins %>% filter(Condition == "IGT_95")
@@ -85,7 +85,7 @@ softmax <- function(x) {
 }
 
 
-# ---- Simulate IGT 95 Using Posterior Means ----------------------------------
+#### Simulate IGT 95 using posterior means ----------------------------------
 
 # Identify subjects
 subjects_95 <- sort(unique(igt_95$SubjectID)) 
@@ -166,7 +166,7 @@ ggplot(prop_df_95, aes(x = TrialBin, y = prop, color = factor(Choice), group = C
 
 
 
-# ---- Posterior Distribution of c (IGT 95) ------------------------------------
+#### Posterior distribution of c (IGT 95) ------------------------------------
 
 summary(draws_95[, grep("c\\[", colnames(draws_95))])
 
@@ -178,7 +178,7 @@ ggplot(c_params_95, aes(x = value)) +
   geom_density(fill = "steelblue", alpha = 0.6) +
   labs(title = "IGT 95: Distribution of Subject-Level c", x = "c", y = "Density")
 
-# ---- Compute Real Behavioral Metrics and Compare with Parameters ------------
+#### Compute real behavior metrics, compare with params ------------
 
 # Behavioral summaries
 behavior_metrics_95 <- igt_95 %>%
@@ -201,9 +201,9 @@ behavior_metrics_95 <- igt_95 %>%
 param_df_95 <- tibble(
   SubjectID = sort(unique(igt_95$SubjectID)),
   alpha = alpha_means_95,
-  w     = w_means_95,
-  A     = A_means_95,
-  c     = c_means_95
+  w = w_means_95,
+  A = A_means_95,
+  c = c_means_95
 )
 
 # Merge behavior and parameters
@@ -217,7 +217,7 @@ ggpairs(
 )
 
 
-# ---- Simulate IGT 150 Using Posterior Means ----------------------------------
+#### Simulate IGT 150 using posterior means ----------------------------------
 
 # Identify subjects
 subjects_150 <- sort(unique(igt_150$SubjectID)) 
@@ -225,9 +225,9 @@ n_subjects_150 <- length(subjects_150)
 
 # Use posterior means for all subject-level parameters
 alpha_means_150 <- sapply(1:n_subjects_150, function(i) mean(draws_150[[paste0("alpha[", i, "]")]]))
-w_means_150     <- sapply(1:n_subjects_150, function(i) mean(draws_150[[paste0("w[", i, "]")]]))
-A_means_150     <- sapply(1:n_subjects_150, function(i) mean(draws_150[[paste0("A[", i, "]")]]))
-c_means_150     <- sapply(1:n_subjects_150, function(i) mean(draws_150[[paste0("c[", i, "]")]]))
+w_means_150 <- sapply(1:n_subjects_150, function(i) mean(draws_150[[paste0("w[", i, "]")]]))
+A_means_150 <- sapply(1:n_subjects_150, function(i) mean(draws_150[[paste0("A[", i, "]")]]))
+c_means_150 <- sapply(1:n_subjects_150, function(i) mean(draws_150[[paste0("c[", i, "]")]]))
 
 # Placeholder for simulated choices
 sim_choices_150 <- list()
@@ -247,9 +247,9 @@ for (i in seq_along(subjects_150)) {
   losses <- subj_data$Loss
   
   alpha_i <- alpha_means_150[i]
-  w_i     <- w_means_150[i]
-  A_i     <- A_means_150[i]
-  c_i     <- c_means_150[i]
+  w_i <- w_means_150[i]
+  A_i <- A_means_150[i]
+  c_i <- c_means_150[i]
   
   sim_choices_150[[i]] <- simulate_pvl_choices(alpha_i, w_i, A_i, c_i, wins, losses, n_trials)
 }
@@ -295,7 +295,7 @@ ggplot(prop_df_150, aes(x = TrialBin, y = prop, color = factor(Choice), group = 
   ) +
   theme_minimal()
 
-# ---- Posterior Distribution of c (IGT 150) ------------------------------------
+#### Posterior distribution of c (IGT 150) -------------------------------------
 
 summary(draws_150[, grep("c\\[", colnames(draws_150))])
 
@@ -307,9 +307,9 @@ ggplot(c_params_150, aes(x = value)) +
   geom_density(fill = "steelblue", alpha = 0.6) +
   labs(title = "IGT 150: Distribution of Subject-Level c", x = "c", y = "Density")
 
-# ---- Compute Real Behavioral Metrics and Compare with Parameters ------------
+#### Compute real behavioral metrics and compare with parameters ------------
 
-# Behavioral summaries
+# Behavior summaries
 behavior_metrics_150 <- igt_150 %>%
   arrange(SubjectID, Trial) %>%
   group_by(SubjectID) %>%
@@ -330,9 +330,9 @@ behavior_metrics_150 <- igt_150 %>%
 param_df_150 <- tibble(
   SubjectID = sort(unique(igt_150$SubjectID)),
   alpha = alpha_means_150,
-  w     = w_means_150,
-  A     = A_means_150,
-  c     = c_means_150
+  w = w_means_150,
+  A = A_means_150,
+  c = c_means_150
 )
 
 # Merge behavior and parameters

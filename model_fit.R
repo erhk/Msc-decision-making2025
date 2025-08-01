@@ -4,7 +4,7 @@
 pacman::p_load(tidyverse, cmdstanr, posterior, bayesplot, ggplot2, tidyr, dplyr,purrr)
 
 # Load pvl model
-model <- cmdstan_model("models/PVL_hierach.stan", cpp_options = list(stan_threads = TRUE))
+model <- cmdstan_model("models/fixed_PVL Hierarchical model.stan", cpp_options = list(stan_threads = TRUE))
 
 # Load empirical data
 igt_all_with_wins <- read_csv("data/Final_IGT_Dataset_with_Wins_and_Running_Total.csv")
@@ -13,6 +13,11 @@ igt_all_with_wins <- read_csv("data/Final_IGT_Dataset_with_Wins_and_Running_Tota
 igt_95  <- igt_all_with_wins %>% filter(Condition == "IGT_95")
 #igt_100 <- igt_all_with_wins %>% filter(Condition == "IGT_100")
 igt_150 <- igt_all_with_wins %>% filter(Condition == "IGT_150")
+
+# Save to your working directory
+write.csv(igt_95, "igt_95.csv", row.names = FALSE)
+write.csv(igt_150, "igt_150.csv", row.names = FALSE)
+
 
 # Prepare and fit data to model - function
 prepare_and_fit <- function(data, model, seed = 1990) {
@@ -61,15 +66,17 @@ prepare_and_fit <- function(data, model, seed = 1990) {
 # Fit model
 fit_95_new  <- prepare_and_fit(igt_95, model)
 
+fit_150_new  <- prepare_and_fit(igt_150, model)
+
 # Save the full fit
 #fit_150$fit$save_object("fit_150_cmdstanr.stanfit")
-#fit_95$fit$save_object("fit_95_cmdstanr.stanfit")
+#fit_95_new$fit$save_object("fit_95_new_cmdstanr.stanfit")
 
 # Save only RDS for local macine
 #saveRDS(fit_95, file = "fit_95.rds")
 #saveRDS(fit_150, file = "fit_150.rds")
 
-
+#fit_sim$save_object("fit_sim_cmdstanr.stanfit")
 
 
 

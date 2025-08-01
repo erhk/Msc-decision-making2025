@@ -4,6 +4,8 @@
 .Ruserdata
 data/
 .RDataTmp
+plots/
+fits/old
 
 *.exe
 *.pdf

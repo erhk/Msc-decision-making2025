@@ -1,4 +1,4 @@
-// PVL Hierarchical model (cleaned)
+// PVL Hierarchical model (corrected with PPC and beta prior for mu_alpha)
 
 data {
   int<lower=1> N;                     // number of subjects
@@ -11,11 +11,11 @@ data {
 }
 
 parameters {
-  // Group-level means (unbounded, transformed later)
-  real mu_alpha;  // learning rate
-  real mu_w;      // loss aversion
-  real mu_A;      // subjective utility
-  real mu_c;      // inverse temperature
+  // Group-level means (on (0,1) scale for beta priors)
+  real<lower=0, upper=1> mu_alpha_raw;      // learning rate (raw)
+  real<lower=0.1, upper=2.0> mu_w;          // loss aversion
+  real<lower=0, upper=1> mu_A_raw;          // subjective utility (raw)
+  real<lower=0.1, upper=10> mu_c;           // inverse temp
 
   // Group-level standard deviations
   real<lower=0.001> sigma_alpha;
@@ -23,7 +23,7 @@ parameters {
   real<lower=0.001> sigma_A;
   real<lower=0.001> sigma_c;
 
-  // Subject-specific raw parameters
+  // Subject-specific standardized deviations
   vector[N] alpha_raw;
   vector[N] w_raw;
   vector[N] A_raw;
@@ -31,33 +31,35 @@ parameters {
 }
 
 transformed parameters {
-  vector[N] alpha; // learning rate [0.01, 0.99]
-  vector[N] w;     // loss aversion [0.1, 2.0]
-  vector[N] A;     // subjective utility [0.1, 1.0]
-  vector[N] c;     // inverse temperature [0.1, 10.0]
+  real mu_alpha = mu_alpha_raw * 0.98 + 0.01;  // scale to [0.01, 0.99]
+  real mu_A     = mu_A_raw     * 0.9  + 0.1;   // scale to [0.1, 1.0]
+
+  vector[N] alpha;
+  vector[N] w;
+  vector[N] A;
+  vector[N] c;
 
   for (i in 1:N) {
-    alpha[i] = inv_logit(mu_alpha + sigma_alpha * alpha_raw[i]) * 0.98 + 0.01;
-    w[i]     = inv_logit(mu_w     + sigma_w     * w_raw[i])     * 1.9  + 0.1;
-    A[i]     = inv_logit(mu_A     + sigma_A     * A_raw[i])     * 0.9  + 0.1;
-    c[i]     = inv_logit(mu_c     + sigma_c     * c_raw[i])     * 9.9  + 0.1;
+    alpha[i] = inv_logit(mu_alpha + sigma_alpha * alpha_raw[i]) * 0.98 + 0.01; // [0.01, 0.99]
+    w[i]     = inv_logit(mu_w     + sigma_w     * w_raw[i])     * 1.9  + 0.1;  // [0.1, 2.0]
+    A[i]     = inv_logit(mu_A     + sigma_A     * A_raw[i])     * 0.9  + 0.1;  // [0.1, 1.0]
+    c[i]     = inv_logit(mu_c     + sigma_c     * c_raw[i])     * 9.9  + 0.1;  // [0.1, 10.0]
   }
 }
 
 model {
-  // Hyperpriors for group-level means
-  mu_alpha ~ normal(0.5, 0.2);
-  mu_w     ~ normal(1, 0.5);
-  mu_A     ~ normal(0.5, 0.2);
-  mu_c     ~ normal(2, 1);
+  // Hyperpriors
+  mu_alpha_raw ~ beta(2, 2);              // prior on (0,1)
+  mu_w         ~ normal(1, 0.5);
+  mu_A_raw     ~ beta(2, 2);              // prior on (0,1)
+  mu_c         ~ normal(2, 1);
 
-  // Hyperpriors for group-level SDs
   sigma_alpha ~ exponential(1);
   sigma_w     ~ exponential(1);
   sigma_A     ~ exponential(1);
   sigma_c     ~ exponential(1);
 
-  // Priors for subject-specific raw parameters
+  // Subject-level priors (standard normal for latent variables)
   alpha_raw ~ normal(0, 1);
   w_raw     ~ normal(0, 1);
   A_raw     ~ normal(0, 1);
@@ -66,24 +68,55 @@ model {
   // Likelihood
   array[N] vector[4] V;  // deck values per subject
   for (i in 1:N)
-    V[i] = rep_vector(0.0, 4);  // initialize deck values at 0
+    V[i] = rep_vector(0.0, 4);  // initialize deck values
 
   for (t in 1:T_total) {
-    int i = subj[t];  
+    int i = subj[t];
     int d = Choice[t];
     real outcome = Win[t] + Loss[t];
-    real abs_outcome = fmax(abs(outcome), 1e-6); // avoid pow(0, A[i])
+    real abs_outcome = fmax(abs(outcome), 1e-6);  // avoid pow(0, A[i])
 
-    // Subjective utility u(x)
-    real u = outcome < 0
-               ? -w[i] * pow(abs_outcome, A[i])
-               : pow(abs_outcome, A[i]);
+    // Subjective utility function
+    real u = outcome < 0 ? -w[i] * pow(abs_outcome, A[i])
+                         :       pow(abs_outcome, A[i]);
 
-    // Softmax choice probability
+    // Choice probability via softmax
     vector[4] logp = c[i] * V[i];
-    target += log_softmax(logp)[d];
+    logp -= max(logp);  // numerical stability
+    target += log_softmax(logp)[Choice[t]];
 
-    // Rescorla-Wagner update for chosen deck
+    
+    // Rescorla-Wagner update
     V[i, d] += alpha[i] * (u - V[i, d]);
+  }
+}
+
+generated quantities {
+  array[T_total] int Choice_sim;
+
+  {
+    array[N] vector[4] V_sim;
+    for (i in 1:N)
+      V_sim[i] = rep_vector(0.0, 4);
+
+    for (t in 1:T_total) {
+      int i = subj[t];
+      real outcome = Win[t] + Loss[t];
+      real abs_outcome = fmax(abs(outcome), 1e-6);
+
+      real u = outcome < 0 ? -w[i] * pow(abs_outcome, A[i])
+                           :       pow(abs_outcome, A[i]);
+
+
+
+      vector[4] logp = c[i] * V_sim[i];
+      logp -= max(logp);  // ✅ stabilize softmax input
+      vector[4] p = softmax(logp);
+
+      Choice_sim[t] = categorical_rng(p);
+
+      int d = Choice[t];  // use actual choice for learning
+      V_sim[i, d] += alpha[i] * (u - V_sim[i, d]);
+    }
   }
 }
